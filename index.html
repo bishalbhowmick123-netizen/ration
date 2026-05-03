@@ -4,14 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<title>Ration Tracker</title>
+<title>Ration Tracker Pro</title>
 
-<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<!-- PWA MANIFEST -->
 <link rel="manifest" href="manifest.json">
-  
+
 <style>
 body {
     margin: 0;
@@ -21,7 +19,7 @@ body {
 
 .container { max-width: 900px; margin: auto; padding: 15px; }
 
-/* TOP */
+/* TOP INPUT */
 .top {
     display: flex;
     gap: 8px;
@@ -31,11 +29,11 @@ body {
     border-radius: 14px;
 }
 
-.top input, .top select {
+.top input {
+    flex: 1;
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #ddd;
-    flex: 1;
 }
 
 .top button {
@@ -49,25 +47,13 @@ body {
 /* SEARCH */
 .search {
     margin-top: 10px;
-    display: flex;
-    gap: 10px;
 }
 
 .search input {
-    flex: 1;
+    width: 100%;
     padding: 10px;
     border-radius: 10px;
     border: 1px solid #ddd;
-}
-
-/* MONTH */
-.month {
-    margin-top: 10px;
-    background: white;
-    padding: 10px;
-    border-radius: 14px;
-    display: flex;
-    justify-content: space-between;
 }
 
 /* LIST */
@@ -78,54 +64,35 @@ body {
     padding: 10px;
 }
 
+/* CATEGORY HEADER */
+.category {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f0f0f5;
+    border-radius: 10px;
+    font-weight: 600;
+    color: #007aff;
+    cursor: pointer;
+}
+
+/* ITEM */
 .item {
     display: flex;
     justify-content: space-between;
-    padding: 12px;
+    padding: 10px 15px;
     border-bottom: 1px solid #eee;
-    position: relative;
 }
 
-.item:last-child { border: none; }
-
-.left {
-    flex: 2;
-}
-
-.cat {
-    font-size: 12px;
-    color: gray;
-}
+.left { flex: 2; }
 
 .value input {
     width: 80px;
     text-align: right;
 }
 
-.actions {
+/* COLLAPSED */
+.hidden {
     display: none;
-    gap: 6px;
-}
-
-.item:hover .actions {
-    display: flex;
-}
-
-.actions button {
-    border: none;
-    padding: 5px 8px;
-    border-radius: 8px;
-    font-size: 12px;
-}
-
-.del { background: #ff3b30; color: white; }
-
-.total {
-    margin-top: 10px;
-    background: white;
-    padding: 12px;
-    border-radius: 12px;
-    text-align: center;
 }
 </style>
 </head>
@@ -136,52 +103,64 @@ body {
 
 <!-- INPUT -->
 <div class="top">
-    <input id="name" placeholder="Item name">
-    <input id="category" placeholder="Category (e.g. Rice, Oil)">
+    <input id="name" placeholder="Item name" list="nameList">
+    <input id="category" placeholder="Category" list="catList">
     <button onclick="addItem()">Add</button>
 </div>
 
+<!-- AUTOCOMPLETE -->
+<datalist id="nameList"></datalist>
+<datalist id="catList"></datalist>
+
 <!-- SEARCH -->
 <div class="search">
-    <input id="search" placeholder="Search items..." oninput="render()">
+    <input id="search" placeholder="Search..." oninput="render()">
 </div>
 
-<!-- MONTH -->
-<div class="month">
-    <button onclick="changeMonth(-1)">⬅</button>
-    <div id="monthLabel"></div>
-    <button onclick="changeMonth(1)">➡</button>
-</div>
-
-<!-- LIST -->
 <div class="list" id="list"></div>
-
-<!-- TOTAL -->
-<div class="total">
-Total: ₹ <span id="total">0</span>
-</div>
 
 </div>
 
 <script>
-let now = new Date();
-let m = now.getMonth();
-let y = now.getFullYear();
 
-const masterKey = "ration_master_v2";
+let m = new Date().getMonth();
+let y = new Date().getFullYear();
+
+const masterKey = "ration_master_v3";
 
 function getKey(){ return `ration_${y}_${m}`; }
 
 function loadMaster(){
     return JSON.parse(localStorage.getItem(masterKey) || "[]");
 }
-function saveMaster(d){ localStorage.setItem(masterKey, JSON.stringify(d)); }
+
+function saveMaster(d){
+    localStorage.setItem(masterKey, JSON.stringify(d));
+}
 
 function loadMonth(){
     return JSON.parse(localStorage.getItem(getKey()) || "{}");
 }
-function saveMonth(d){ localStorage.setItem(getKey(), JSON.stringify(d)); }
 
+function saveMonth(d){
+    localStorage.setItem(getKey(), JSON.stringify(d));
+}
+
+/* AUTO SUGGEST */
+function updateSuggestions(){
+    let master = loadMaster();
+
+    let names = [...new Set(master.map(i => i.name))];
+    let cats = [...new Set(master.map(i => i.category))];
+
+    document.getElementById("nameList").innerHTML =
+        names.map(n => `<option value="${n}">`).join("");
+
+    document.getElementById("catList").innerHTML =
+        cats.map(c => `<option value="${c}">`).join("");
+}
+
+/* ADD ITEM */
 function addItem(){
     let name = document.getElementById("name").value.trim();
     let cat = document.getElementById("category").value.trim() || "General";
@@ -190,21 +169,30 @@ function addItem(){
 
     let master = loadMaster();
 
-    if(!master.find(x => x.name === name)){
+    if(!master.find(i => i.name === name)){
         master.push({name, category: cat});
         saveMaster(master);
     }
 
     let month = loadMonth();
-    if(!month[name]) month[name] = 0;
+    if(month[name] === undefined) month[name] = 0;
     saveMonth(month);
 
     document.getElementById("name").value = "";
     document.getElementById("category").value = "";
 
+    updateSuggestions();
     render();
 }
 
+/* UPDATE VALUE */
+function updateValue(name, val){
+    let month = loadMonth();
+    month[name] = Number(val) || 0;
+    saveMonth(month);
+}
+
+/* DELETE */
 function deleteItem(name){
     let master = loadMaster().filter(i => i.name !== name);
     saveMaster(master);
@@ -216,33 +204,14 @@ function deleteItem(name){
     render();
 }
 
-function updateValue(name, val){
-    let month = loadMonth();
-    month[name] = Number(val) || 0;
-    saveMonth(month);
-    renderTotal();
+/* TOGGLE CATEGORY */
+function toggle(cat){
+    let el = document.querySelectorAll(`[data-cat="${cat}"]`);
+    el.forEach(e => e.classList.toggle("hidden"));
 }
 
-function changeMonth(step){
-    m += step;
-    if(m < 0){ m = 11; y--; }
-    if(m > 11){ m = 0; y++; }
-    render();
-}
-
-function sync(){
-    let master = loadMaster();
-    let month = loadMonth();
-
-    master.forEach(i=>{
-        if(month[i.name] === undefined) month[i.name] = 0;
-    });
-
-    saveMonth(month);
-}
-
+/* RENDER */
 function render(){
-    sync();
 
     let list = document.getElementById("list");
     let search = document.getElementById("search").value.toLowerCase();
@@ -252,55 +221,58 @@ function render(){
     let master = loadMaster();
     let month = loadMonth();
 
-    master
-    .filter(i =>
+    let filtered = master.filter(i =>
         i.name.toLowerCase().includes(search) ||
         i.category.toLowerCase().includes(search)
-    )
-    .forEach(i=>{
-        let div = document.createElement("div");
-        div.className = "item";
+    );
 
-        div.innerHTML = `
-        <div class="left">
-            <div>${i.name}</div>
-            <div class="cat">${i.category}</div>
-        </div>
-
-        <div class="value">
-            <input type="number" value="${month[i.name] || 0}"
-            onchange="updateValue('${i.name}',this.value)">
-        </div>
-
-        <div class="actions">
-            <button class="del" onclick="deleteItem('${i.name}')">X</button>
-        </div>
-        `;
-
-        list.appendChild(div);
+    let grouped = {};
+    filtered.forEach(i => {
+        if(!grouped[i.category]) grouped[i.category] = [];
+        grouped[i.category].push(i);
     });
 
-    renderTotal();
-    updateLabel();
+    Object.keys(grouped).sort().forEach(cat => {
+
+        let catDiv = document.createElement("div");
+        catDiv.className = "category";
+        catDiv.innerText = "📦 " + cat;
+        catDiv.onclick = () => toggle(cat);
+        list.appendChild(catDiv);
+
+        grouped[cat].forEach(i => {
+
+            let div = document.createElement("div");
+            div.className = "item";
+            div.setAttribute("data-cat", cat);
+
+            div.innerHTML = `
+                <div class="left">${i.name}</div>
+
+                <div class="value">
+                    <input type="number"
+                    value="${month[i.name] || 0}"
+                    onchange="updateValue('${i.name}',this.value)">
+                </div>
+
+                <button onclick="deleteItem('${i.name}')">X</button>
+            `;
+
+            list.appendChild(div);
+        });
+    });
+
+    updateSuggestions();
 }
 
-function renderTotal(){
-    let mdata = loadMonth();
-    let total = Object.values(mdata).reduce((a,b)=>a+Number(b||0),0);
-    document.getElementById("total").innerText = total;
+/* PWA */
+if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js");
 }
 
-function updateLabel(){
-    const names=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    document.getElementById("monthLabel").innerText = `${names[m]} ${y}`;
-}
+updateSuggestions();
+render();
 
-/* ===== PWA SERVICE WORKER ===== */
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js")
-    .then(() => console.log("Service Worker Registered"));
-}
-  render();
 </script>
 
 </body>
