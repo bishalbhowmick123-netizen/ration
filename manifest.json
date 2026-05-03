@@ -1,6 +1,6 @@
 {
-  "name": "Ration Tracker",
-  "short_name": "Ration",
+  "name": "Ration Tracker Pro",
+  "short_name": "RationPro",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f2f2f7",
